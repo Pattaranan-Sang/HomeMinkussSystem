@@ -250,6 +250,16 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .item-h input.nm{min-height:42px;background:var(--card);border-radius:14px}
 .ist{margin:4px 0 0 28px!important}
 .costin{width:84px;min-height:38px!important;padding:6px 10px!important;text-align:right}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media (min-width:640px){.kpis{grid-template-columns:repeat(3,1fr)}}
+.kpi{background:var(--card);border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi small{color:var(--soft);font-size:.78rem}
+.kpi b{font-size:1.3rem;font-variant-numeric:tabular-nums;word-break:break-all}
+.kpi.hl{background:var(--brand);color:#fff}.kpi.hl small{color:rgba(255,255,255,.8)}
+.dgrid{display:grid;gap:14px}@media (min-width:640px){.dgrid{grid-template-columns:1fr 1fr}}
+.flow.light{background:var(--line)}
+.recmini{display:flex;justify-content:space-between;align-items:center;border:1px dashed var(--line);border-radius:16px;padding:8px 14px;margin-top:10px;font-size:.88rem;color:var(--soft)}
+.seg.tight button{padding:8px 4px;font-size:.86rem;min-width:0}
 #toast{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;max-width:90vw;text-align:center}
 #toast.show{opacity:1}#toast.err{background:var(--bad);color:#fff}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
@@ -297,7 +307,7 @@ const sortedProds=()=>[...S.prods].sort((a,b)=>catIdx(a.cat)-catIdx(b.cat)||num(
 function prodOptions(sel,ph){const g={};sortedProds().forEach(p=>(g[p.cat||'อื่น ๆ']||=[]).push(p));return (ph?`<option value="">${ph}</option>`:'')+Object.entries(g).map(([c,arr])=>`<optgroup label="${esc(c)}">${arr.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('')}</optgroup>`).join('')}
 const EXP_CATS=['ค่าเช่า','ค่าน้ำ/ไฟ/แก๊ส','ค่าแรงพนักงาน','ค่าโฆษณา/โปรโมชัน','ค่าขนส่ง','อุปกรณ์/ซ่อมบำรุง','อื่น ๆ'];
 const DEFAULT_SETTINGS={shopName:'Minkuss Greek Yogurt',channels:[
-  {id:'direct',name:'ขายหน้าร้าน',gp:0,vat:false},{id:'grab',name:'GrabFood',gp:30,vat:true},
+  {id:'direct',name:'ขายหน้าร้าน',gp:0,vat:false},{id:'delivery',name:'Delivery (ร้านส่งเอง)',gp:0,vat:false},{id:'grab',name:'Grab',gp:30,vat:true},
   {id:'lineman',name:'LINE MAN',gp:30,vat:true},{id:'shopee',name:'ShopeeFood',gp:25,vat:true}],
   taxMode:'person',extraDeductions:0,withheld:0,hiddenPct:30,profitPct:50};
 const COLS=['ings','boms','prods','sales','incomes','purchases','productions','expenses','adjustments'];
@@ -306,7 +316,7 @@ const INC_CATS=['ยอดขายรวม (ไม่แยกเมนู)','
 /* ============ state ============ */
 const S={ings:[],boms:[],prods:[],sales:[],incomes:[],purchases:[],productions:[],expenses:[],adjustments:[],settings:clone(DEFAULT_SETTINGS)};
 let db=null,sampleCap=null,canAdmin=true,tab='home',pending=false,dlg=null;
-const ui={pcat:'',acctView:'month',acctAdd:'inc',month:today().slice(0,7),rec:'sale',year:+today().slice(0,4),project:true,armed:null,q:'',cat:'',labPid:'',target:30,fixed:null,ai:{},aiBusy:false};
+const ui={dashView:'day',hideRec:(()=>{try{return localStorage.getItem('mk-hide-rec')==='1'}catch(e){return false}})(),pcat:'',acctView:'month',acctAdd:'inc',month:today().slice(0,7),rec:'sale',year:+today().slice(0,4),project:true,armed:null,q:'',cat:'',labPid:'',target:30,fixed:null,ai:{},aiBusy:false};
 const drafts={
   sale:{date:today(),channel:'grab',lines:[{pid:'',qty:'',price:''}]},
   buy:{date:today(),ing:'',packs:'',total:''},
@@ -417,36 +427,76 @@ const thumb=(img,emoji)=>img?`<img class="thumb" src="${esc(img)}" alt="">`:`<sp
 
 /* ============ HOME ============ */
 function monthOptions(){const set=new Set([today().slice(0,7),ui.month]);S.sales.concat(S.expenses).forEach(x=>x.date&&set.add(x.date.slice(0,7)));return[...set].sort().reverse().map(k=>`<option value="${k}" ${k===ui.month?'selected':''}>${ymLabel(k)}</option>`).join('')}
+function periodData(view){
+  const td=today();const mk=ui.month;const [yy,mm]=mk.split('-').map(Number);const key=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const P=[];
+  if(view==='day'){const dim=new Date(yy,mm,0).getDate();for(let i=1;i<=dim;i++){const d=`${mk}-${String(i).padStart(2,'0')}`;const s=summary(x=>x===d);P.push({label:String(i),full:`${i} ${TH_M[mm-1]}`,v:s.rev,o:s.orders,hl:d===td,tick:[1,8,15,22,dim].includes(i)})}}
+  else if(view==='week'){const now=new Date(td+'T00:00:00');const dow=(now.getDay()+6)%7;const mon=new Date(now);mon.setDate(now.getDate()-dow);
+    for(let w=11;w>=0;w--){const a=new Date(mon);a.setDate(mon.getDate()-7*w);const b=new Date(a);b.setDate(a.getDate()+6);const ka=key(a),kb=key(b);const s=summary(x=>x>=ka&&x<=kb);
+      P.push({label:`${a.getDate()}/${a.getMonth()+1}`,full:`${a.getDate()} ${TH_M[a.getMonth()]} – ${b.getDate()} ${TH_M[b.getMonth()]}`,v:s.rev,o:s.orders,hl:w===0,tick:w%3===0})}}
+  else if(view==='month'){const y=ui.year;for(let m=1;m<=12;m++){const k=`${y}-${String(m).padStart(2,'0')}`;const s=summary(x=>x.startsWith(k));P.push({label:TH_M[m-1],full:`${TH_M[m-1]} ${y+543}`,v:s.rev,o:s.orders,hl:k===td.slice(0,7),tick:true})}}
+  else{const ys=new Set([+td.slice(0,4)]);S.sales.concat(S.incomes).forEach(x=>{const y=+String(x.date||'').slice(0,4);if(y)ys.add(y)});[...ys].sort().slice(-6).forEach(y=>{const s=summary(x=>x.startsWith(y+'-'));P.push({label:String(y+543),full:`ปี ${y+543}`,v:s.rev,o:s.orders,hl:y===+td.slice(0,4),tick:true})})}
+  return P;
+}
+function salesPeriodsHTML(){
+  const v=ui.dashView||'day';const P=periodData(v);
+  const W=360,H=140,n=P.length,bw=W/n;const mx=Math.max(1,...P.map(p=>p.v));
+  const bars=P.map((p,i)=>{const h=p.v/mx*100;return `<rect x="${(i*bw+bw*.15).toFixed(1)}" y="${(110-h).toFixed(1)}" width="${(bw*.7).toFixed(1)}" height="${Math.max(h,p.v?2:0).toFixed(1)}" rx="3" fill="${p.hl?'var(--sun)':'var(--brand)'}"><title>${p.full}: ${baht(p.v)}</title></rect>${p.tick?`<text x="${(i*bw+bw/2).toFixed(1)}" y="128" text-anchor="middle">${p.label}</text>`:''}`}).join('');
+  const tot=P.reduce((a,p)=>a+p.v,0),orders=P.reduce((a,p)=>a+p.o,0);const active=P.filter(p=>p.v>0);
+  const best=P.reduce((b,p)=>p.v>b.v?p:b,{v:0,full:'-'});
+  const unit={day:'วัน',week:'สัปดาห์',month:'เดือน',year:'ปี'}[v];
+  const scope={day:ymLabel(ui.month),week:'12 สัปดาห์ล่าสุด',month:`ปี ${ui.year+543}`,year:'ทุกปี'}[v];
+  const rows=[...P].reverse().filter(p=>p.v>0).slice(0,v==='day'?7:12);
+  const picker=v==='day'?`<select data-ui="month" style="width:auto;min-height:38px;padding:6px 12px">${monthOptions()}</select>`:v==='month'?`<select data-ui="year" style="width:auto;min-height:38px;padding:6px 12px">${yearsWithData().map(x=>`<option value="${x}" ${x===ui.year?'selected':''}>ปี ${x+543}</option>`).join('')}</select>`:`<span class="muted">${scope}</span>`;
+  return `<section class="panel stack"><div class="row between"><h3>สรุปยอดขาย</h3>${picker}</div>
+    <div class="seg tight">${[['day','รายวัน'],['week','รายสัปดาห์'],['month','รายเดือน'],['year','รายปี']].map(([k,l])=>`<button data-dv="${k}" aria-pressed="${v===k}">${l}</button>`).join('')}</div>
+    <div class="trio" style="margin-top:0"><div style="background:var(--field)"><small>ยอดรวม${v==='year'?'':` (${scope})`}</small><b class="in">${baht(tot)}</b></div><div style="background:var(--field)"><small>เฉลี่ยต่อ${unit}</small><b>${baht(active.length?tot/active.length:0)}</b></div><div style="background:var(--field)"><small>${unit}ที่ขายดีสุด</small><b style="font-size:.9rem">${best.v?esc(best.full):'-'}</b></div></div>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="กราฟยอดขาย${unit}"><line x1="0" y1="110" x2="${W}" y2="110" stroke="var(--line)"/>${bars}${tot?'':`<text x="${W/2}" y="60" text-anchor="middle" style="font-size:13px">ยังไม่มียอดขายในช่วงนี้</text>`}</svg>
+    ${rows.length?`<div class="tbl"><table><thead><tr><th>${unit}</th><th class="n">รายการ</th><th class="n">ยอดขาย</th></tr></thead><tbody>${rows.map(p=>`<tr><td>${esc(p.full)}${p.hl?' <span class="badge b-sun">ปัจจุบัน</span>':''}</td><td class="n">${p.o}</td><td class="n"><b>${baht(p.v)}</b></td></tr>`).join('')}<tr><td><b>รวม</b></td><td class="n"><b>${orders}</b></td><td class="n"><b>${baht(tot)}</b></td></tr></tbody></table></div>`:''}
+  </section>`;
+}
 function vHome(){
-  const s=summary(d=>d.startsWith(ui.month));const low=lowStock();
-  const has=[S.ings.length>0,S.prods.length>0,S.sales.length>0];
-  const tot=Math.max(s.rev,1);const seg=(v,c)=>v>0?`<span style="width:${(v/tot*100).toFixed(2)}%;background:${c}"></span>`:'';
-  const top=Object.entries(s.byProd).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const mk=ui.month;const [yy,mm]=mk.split('-').map(Number);
+  const pk=(()=>{const d=new Date(yy,mm-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')})();
+  const c=cashBook(d=>d.startsWith(mk)),cp=cashBook(d=>d.startsWith(pk));
+  const s=summary(d=>d.startsWith(mk)),sp=summary(d=>d.startsWith(pk));
+  const td=today(),isCur=mk===td.slice(0,7);
+  const t=summary(d=>d===td);
+  const pct=(a,b)=>b?Math.round((a-b)/Math.abs(b)*100):null;
+  const chg=(a,b,goodUp=true)=>{const p=pct(a,b);if(p===null)return '<small class="muted">ยังไม่มีข้อมูลเดือนก่อน</small>';const up=p>=0;const good=goodUp?up:!up;return `<small style="color:${good?'var(--ok)':'var(--bad)'}">${up?'▲':'▼'} ${Math.abs(p)}% จากเดือนก่อน</small>`};
+  const avg=s.orders?s.rev/s.orders:0;
+  const dim=new Date(yy,mm,0).getDate();
+  const ch=Object.entries(s.byCh).sort((a,b)=>b[1]-a[1]);const chT=ch.reduce((a,[,v])=>a+v,0)||1;
+  const top=Object.entries(s.byProd).sort((a,b)=>b[1]-a[1]).slice(0,5);const topMax=top[0]?top[0][1]:1;
+  const tot=Math.max(s.rev,1);const seg=(v,col)=>v>0?`<span style="width:${(v/tot*100).toFixed(2)}%;background:${col}"></span>`:'';
+  const low=lowStock();
+  const recent=c.rows.slice(0,5);
   return `<div class="stack">
-  <section class="hero">
-    <div class="row between"><span class="lbl">กำไรสุทธิ</span><select data-ui="month">${monthOptions()}</select></div>
-    <div class="big">${baht(s.profit)}</div>
-    <p class="lbl">ขายได้ ${baht(s.rev)} จาก ${s.orders} รายการ${s.rev?` กำไร ${Math.round(s.profit/s.rev*100)}%`:''}</p>
-    <div class="flow">${seg(s.cogs,'#F2C21B')}${seg(s.gp,'#9DBBF0')}${seg(s.exp,'#FF9E7A')}${seg(Math.max(s.profit,0),'#7FE0AE')}</div>
+  <div class="row between"><h2 style="font-size:1.5rem">Dashboard</h2><select data-ui="month" style="width:auto">${monthOptions()}</select></div>
+  <div class="kpis">
+    <div class="kpi hl"><small>${isCur?'ยอดขายวันนี้':'ยอดขายเฉลี่ยต่อวัน'}</small><b>${baht(isCur?t.rev:s.rev/dim)}</b><small>${isCur?`${t.orders} รายการ`:ymLabel(mk)}</small></div>
+    <div class="kpi"><small>ยอดขายเดือนนี้</small><b>${baht(s.rev)}</b>${chg(s.rev,sp.rev)}</div>
+    <div class="kpi"><small>รายจ่ายเดือนนี้</small><b class="out">${baht(c.out)}</b>${chg(c.out,cp.out,false)}</div>
+    <div class="kpi"><small>คงเหลือ (รับ − จ่าย)</small><b class="${c.net<0?'out':'in'}">${baht(c.net)}</b>${chg(c.net,cp.net)}</div>
+    <div class="kpi"><small>จำนวนรายการขาย</small><b>${s.orders.toLocaleString('th-TH')}</b><small>เฉลี่ย ${baht(avg)} / รายการ</small></div>
+    <div class="kpi"><small>กำไรตามต้นทุนสูตร</small><b class="${s.profit<0?'out':''}">${baht(s.profit)}</b><small>${s.rev?Math.round(s.profit/s.rev*100)+'% ของยอดขาย':'—'}</small></div>
+  </div>
+  ${salesPeriodsHTML()}
+  <div class="dgrid">
+    <section class="panel"><h3>ยอดขายตามช่องทาง</h3>${ch.length?`<div style="margin-top:10px">${ch.map(([n,v])=>`<div style="margin-bottom:10px"><div class="row between"><span>${esc(n)}</span><b>${baht(v)} <small class="muted">${Math.round(v/chT*100)}%</small></b></div><div class="bar"><i style="width:${(v/chT*100).toFixed(1)}%;background:var(--brand)"></i></div></div>`).join('')}</div>`:'<p class="muted" style="margin-top:6px">ยังไม่มียอดขายในเดือนนี้</p>'}</section>
+    <section class="panel"><h3>เมนูขายดี</h3>${top.length?`<div style="margin-top:10px">${top.map(([n,q],i)=>`<div style="margin-bottom:10px"><div class="row between"><span>${i+1}. ${esc(n)}</span><b>${qf(q)}</b></div><div class="bar"><i style="width:${(q/topMax*100).toFixed(1)}%"></i></div></div>`).join('')}</div>`:'<p class="muted" style="margin-top:6px">ยังไม่มียอดขายแยกเมนู</p>'}</section>
+  </div>
+  <section class="panel"><h3>โครงสร้างต้นทุน (ตามสูตรเมนู)</h3>
+    <div class="flow light">${seg(s.cogs,'#F2C21B')}${seg(s.gp,'#9DBBF0')}${seg(s.exp,'#FF9E7A')}${seg(Math.max(s.profit,0),'#5CC690')}</div>
     <div class="legend">
-      <div><span><i class="dot" style="background:#F2C21B"></i>ต้นทุนวัตถุดิบ</span><b>${baht(s.cogs)}</b></div>
+      <div><span><i class="dot" style="background:#F2C21B"></i>วัตถุดิบ</span><b>${baht(s.cogs)}</b></div>
       <div><span><i class="dot" style="background:#9DBBF0"></i>ค่า GP แอป</span><b>${baht(s.gp)}</b></div>
       <div><span><i class="dot" style="background:#FF9E7A"></i>ค่าใช้จ่ายอื่น</span><b>${baht(s.exp)}</b></div>
-      <div><span><i class="dot" style="background:#7FE0AE"></i>กำไร</span><b>${baht(s.profit)}</b></div>
-    </div>
-  </section>
-  ${(()=>{const c=cashBook(d=>d.startsWith(ui.month));return `<button class="panel acctcard" data-tab="acct"><div class="row between"><h3>📒 รายรับ-รายจ่าย ${ymLabel(ui.month)}</h3><span class="muted">ดูทั้งหมด ›</span></div>
-    <div class="trio"><div><small>รายรับ</small><b class="in">${baht(c.inc)}</b></div><div><small>รายจ่าย</small><b class="out">${baht(c.out)}</b></div><div><small>คงเหลือ</small><b class="${c.net<0?'out':''}">${baht(c.net)}</b></div></div>
-    ${(()=>{const top=Object.entries(c.byOut).sort((a,b)=>b[1]-a[1]).slice(0,3);return top.length?`<div style="margin-top:12px"><small class="muted">รายจ่ายหลักเดือนนี้</small>${top.map(([n,v])=>`<div class="row between" style="margin-top:4px"><span>${esc(n)}</span><b class="out">${baht(v)}</b></div>`).join('')}</div>`:'<p class="hint" style="margin-top:10px">ยังไม่มีรายการ แตะเพื่อเพิ่มรายรับ-รายจ่าย</p>'})()}</button>`})()}
-  <div class="quick">
-    <button data-rec="sale"><span class="ic">🧾</span>บันทึกขาย</button>
-    <button data-rec="inc"><span class="ic">💰</span>รายรับ</button>
-    <button data-rec="exp"><span class="ic">💸</span>ค่าใช้จ่าย</button>
-    <button data-rec="buy"><span class="ic">🛒</span>ซื้อวัตถุดิบ</button>
-  </div>
-
-  ${low.length?`<section class="panel"><div class="row between"><h3>วัตถุดิบใกล้หมด</h3><span class="badge b-bad">${low.length} รายการ</span></div><ul class="feed">${low.map(({i,q})=>`<li><div class="what"><b>${esc(i.name)}</b><small>เหลือ ${qf(q)} ${esc(i.unit)}</small></div><button class="btn sm sun" data-buy="${i.id}">ซื้อเพิ่ม</button></li>`).join('')}</ul></section>`:''}
-  <section class="panel"><h3>เมนูขายดีเดือนนี้</h3>${top.length?`<ul class="feed">${top.map(([n,q])=>`<li><div class="what">${esc(n)}</div><b>${qf(q)} ถ้วย</b></li>`).join('')}</ul>`:'<p class="muted" style="margin-top:6px">ยังไม่มียอดขายในเดือนนี้</p>'}</section>
+      <div><span><i class="dot" style="background:#5CC690"></i>กำไร</span><b>${baht(s.profit)}</b></div>
+    </div></section>
+  <section class="panel"><div class="row between"><h3>รายการล่าสุด</h3><button class="back" data-tab="acct">ดูทั้งหมด ›</button></div>
+    ${recent.length?`<ul class="feed">${recent.map(r=>`<li><span class="badge ${r.type==='in'?'b-ok':'b-bad'}">${dLabel(r.date)}</span><div class="what"><b>${esc(r.cat)}</b><small>${esc(r.desc)}</small></div><b class="${r.type}">${r.type==='in'?'+':'−'}${baht(r.amt)}</b></li>`).join('')}</ul>`:'<p class="muted" style="margin-top:6px">ยังไม่มีรายการในเดือนนี้</p>'}</section>
+  ${low.length?`<button class="panel acctcard" data-tab="ings"><div class="row between"><span>📦 วัตถุดิบที่ต้องสั่งเพิ่ม</span><span class="badge b-bad">${low.length} รายการ ›</span></div></button>`:''}
   <div class="grid2">
     <button class="btn line block" data-lineshare>ส่งสรุปเข้า LINE</button>
     <button class="btn ghost block" data-tab="tax">🧾 คำนวณภาษีรายปี</button>
@@ -619,7 +669,7 @@ function prodList(){const q=ui.q.trim().toLowerCase();const arr=sortedProds().fi
 function openProd(id){const p=id?prodById(id):null;
   dlg={kind:'prod',tab:'info',id:id||null,name:p?.name||'',code:p?.code||'',cat:p?.cat||MENU_CATS[0],sop:p?.sop||'',img:p?.img||'',items:clone(p?.items||[]),channels:clone(p?.channels||[])};
   if(!dlg.items.length)dlg.items.push({ref:'',qty:'',unit:''});
-  if(!dlg.channels.length)dlg.channels=S.settings.channels.slice(0,2).map(c=>({ch:c.id,price:'',target:30,noPack:c.id==='direct',extras:[],discounts:[]}));
+  if(!dlg.channels.length)dlg.channels=(()=>{const a=S.settings.channels;const pick=['direct','grab'].map(id=>a.find(c=>c.id===id)).filter(Boolean);return pick.length?pick:a.slice(0,2)})().map(c=>({ch:c.id,price:'',target:30,noPack:c.id==='direct',extras:[],discounts:[]}));
   openDlg();}
 function prodDlg(d){
   const nItems=d.items.filter(l=>l.ref).length;
@@ -642,13 +692,13 @@ function prodDlg(d){
 function prodCalcHTML(){return `<div><span>ต้นทุนวัตถุดิบรวม</span><b style="color:var(--ok);font-size:1.15rem">${f2(itemsCost(dlg.items))} บาท</b></div>`}
 function chCard(d,mc,k){
   const used=d.channels.map(x=>x.ch);
-  const opts=S.settings.channels.filter(c=>c.id===mc.ch||!used.includes(c.id)).map(c=>`<option value="${c.id}" ${c.id===mc.ch?'selected':''}>${esc(c.name)}</option>`).join('');
+  const opts=S.settings.channels.map(c=>{const taken=c.id!==mc.ch&&used.includes(c.id);return `<option value="${c.id}" ${c.id===mc.ch?'selected':''} ${taken?'disabled':''}>${esc(c.name)}${taken?' (เพิ่มแล้ว)':''}</option>`}).join('');
   const g=chanById(mc.ch);
   const pack=itemsCost(d.items,{onlyPack:true});
   return `<div class="chcard"><div class="hd"><select data-g="channels.${k}.ch" aria-label="ช่องทาง">${opts}</select><button class="x" data-rmch2="${k}" aria-label="ลบช่องทาง" style="color:var(--bad)">✕</button></div>
     <p class="muted" style="margin:-4px 0 10px">GP ${num(g?.gp)}%${g?.vat?' + VAT 7% ของ GP':''}</p>
     <label class="f">ราคาขาย (บาท)<input inputmode="decimal" data-g="channels.${k}.price" value="${esc(mc.price)}" placeholder="0"></label>
-    <div class="rec"><div class="rt" id="rec-${k}">${recHTML(d,mc)}</div><span class="hint" style="margin:0">ปรับ % ทุนแฝง / กำไร ได้ที่ ⚙️</span><button class="btn sm ghost" data-userec="${k}">ใช้ราคานี้</button></div>
+    ${ui.hideRec?`<div class="recmini"><span>🧮 ซ่อนราคาแนะนำอยู่</span><button class="back" data-togrec>แสดง</button></div>`:`<div class="rec"><div class="rt" id="rec-${k}">${recHTML(d,mc)}</div><span class="hint" style="margin:0">ปรับ % ทุนแฝง / กำไร ได้ที่ ⚙️</span><div class="row" style="gap:6px;justify-content:flex-end"><button class="btn sm ghost" data-togrec>ซ่อน</button><button class="btn sm ghost" data-userec="${k}">ใช้ราคานี้</button></div></div>`}
     ${pack>0?`<label class="toggle"><div><b>ช่องทางนี้ไม่ได้ใช้บรรจุภัณฑ์</b><small>บรรจุภัณฑ์ในเมนูนี้มีมูลค่า ${f2(pack)} บาท</small></div><input type="checkbox" data-g="channels.${k}.noPack" ${mc.noPack?'checked':''}></label>`:''}
     <details class="acc" ${mc.extras?.length?'open':''}><summary>ค่าใช้จ่ายเสริม (${(mc.extras||[]).length})</summary><div>
       <p class="hint" style="margin:0 0 8px">เช่น ค่าแรงต่อถ้วย ถุงน้ำแข็ง ค่าขนส่งที่ร้านออกเอง</p>
@@ -778,7 +828,7 @@ function vAcct(){
     <section class="panel stack"><h3>เพิ่มรายการ</h3>
       <div class="seg"><button data-aadd="inc" aria-pressed="${ak==='inc'}">💰 รายรับ</button><button data-aadd="exp" aria-pressed="${ak==='exp'}">💸 รายจ่าย</button></div>
       ${recForm(ak)}
-      <p class="hint">บันทึกยอดขายแยกเมนูได้ที่หน้าภาพรวม ปุ่ม “บันทึกขาย”</p></section>
+      <button class="btn ghost block" data-rec="sale">🧾 บันทึกยอดขายแยกเมนู</button></section>
     <div class="seg"><button data-av="month" aria-pressed="${v==='month'}">สรุปรายเดือน</button><button data-av="year" aria-pressed="${v==='year'}">สรุปรายปี</button></div>
     <button class="btn sun block" data-xlsx="${v}">📊 ดาวน์โหลด Excel ${v==='year'?`ปี ${ui.year+543}`:ymLabel(ui.month)}</button>
     ${body}
@@ -1023,6 +1073,7 @@ document.addEventListener('click',async e=>{
   if(ds.rec&&!b.closest('.seg')){tab='rec';ui.rec=ds.rec;render();window.scrollTo?.(0,0);return}
   if(ds.rec){ui.rec=ds.rec;render();return}
   if(ds.aadd){ui.acctAdd=ds.aadd;render();return}
+  if(ds.dv){ui.dashView=ds.dv;render();return}
   if(ds.av){ui.acctView=ds.av;render();return}
   if(ds.proj){ui.project=ds.proj==='1';render();return}
   if('addline' in ds){drafts.sale.lines.push({pid:'',qty:'',price:''});render();return}
@@ -1052,6 +1103,7 @@ document.addEventListener('click',async e=>{
   if(ds.rmi){dlg.items.splice(+ds.rmi,1);if(!dlg.items.length)dlg.items.push({ref:'',qty:'',unit:''});drawDlg();return}
   if('addch2' in ds){const used=dlg.channels.map(x=>x.ch);const c=S.settings.channels.find(x=>!used.includes(x.id));if(c){dlg.channels.push({ch:c.id,price:'',target:30,noPack:false,extras:[],discounts:[]});drawDlg()}return}
   if(ds.rmch2){dlg.channels.splice(+ds.rmch2,1);drawDlg();return}
+  if('togrec' in ds){ui.hideRec=!ui.hideRec;try{localStorage.setItem('mk-hide-rec',ui.hideRec?'1':'0')}catch(_){}drawDlg();return}
   if(ds.userec){const mc=dlg.channels[+ds.userec];mc.price=String(chanCalc(dlg,mc).rec);drawDlg();return}
   if(ds.addx){(dlg.channels[+ds.addx].extras||=[]).push({name:'',amt:''});drawDlg();return}
   if(ds.rmx){const[k,j]=ds.rmx.split('.');dlg.channels[+k].extras.splice(+j,1);drawDlg();return}

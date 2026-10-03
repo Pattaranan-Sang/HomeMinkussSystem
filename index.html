@@ -362,7 +362,7 @@ function isTyping(){const a=document.activeElement;return a&&$('#view').contains
 function schedule(){if(isTyping()){pending=true;return}render()}
 document.addEventListener('focusout',()=>setTimeout(()=>{if(pending&&!isTyping()){pending=false;render()}},60));
 function render(){
-  if(typeof MODE!=='undefined'&&MODE==='firebase'&&!authUser){showLogin();return}
+  if(typeof MODE!=='undefined'&&MODE==='firebase'&&!authUser){const u=window.firebase&&firebase.apps&&firebase.apps.length&&firebase.auth().currentUser;u&&!u.emailVerified?showVerify(u):showLogin();return}
   $('#shopName').textContent=S.settings.shopName||'Minkuss Greek Yogurt';
   renderNav();
   $('#view').innerHTML=({home:vHome,rec:vRec,ings:vIngs,boms:vBoms,prods:vProds,lab:vLab,acct:vAcct,tax:vTax,set:vSet})[tab]();
@@ -395,15 +395,11 @@ function vHome(){
     ${(()=>{const top=Object.entries(c.byOut).sort((a,b)=>b[1]-a[1]).slice(0,3);return top.length?`<div style="margin-top:12px"><small class="muted">รายจ่ายหลักเดือนนี้</small>${top.map(([n,v])=>`<div class="row between" style="margin-top:4px"><span>${esc(n)}</span><b class="out">${baht(v)}</b></div>`).join('')}</div>`:'<p class="hint" style="margin-top:10px">ยังไม่มีรายการ แตะเพื่อเพิ่มรายรับ-รายจ่าย</p>'})()}</button>`})()}
   <div class="quick">
     <button data-rec="sale"><span class="ic">🧾</span>บันทึกขาย</button>
-    <button data-rec="inc"><span class="ic">💰</span>รายรับอื่น</button>
+    <button data-rec="inc"><span class="ic">💰</span>รายรับ</button>
     <button data-rec="exp"><span class="ic">💸</span>ค่าใช้จ่าย</button>
     <button data-rec="buy"><span class="ic">🛒</span>ซื้อวัตถุดิบ</button>
   </div>
 
-  ${!has.every(Boolean)?`<section class="panel"><h3>เริ่มต้นใน 3 ขั้นตอน</h3><ol class="steps">
-    <li class="${has[0]?'done':''}"><div><b>ใส่วัตถุดิบ</b><br><span class="muted">ราคาที่ซื้อ และหน่วยที่ใช้ในสูตร</span></div><button class="btn sm ghost" data-tab="ings">เริ่ม</button></li>
-    <li class="${has[1]?'done':''}"><div><b>สร้างเมนูพร้อมสูตร</b><br><span class="muted">ตั้งราคาแต่ละช่องทาง ระบบคิดกำไรให้</span></div><button class="btn sm ghost" data-tab="prods">เริ่ม</button></li>
-    <li class="${has[2]?'done':''}"><div><b>บันทึกยอดขาย</b><br><span class="muted">ดูยอดจากแอปแล้วกรอกเป็นรายวัน</span></div><button class="btn sm ghost" data-rec="sale">เริ่ม</button></li></ol></section>`:''}
   ${low.length?`<section class="panel"><div class="row between"><h3>วัตถุดิบใกล้หมด</h3><span class="badge b-bad">${low.length} รายการ</span></div><ul class="feed">${low.map(({i,q})=>`<li><div class="what"><b>${esc(i.name)}</b><small>เหลือ ${qf(q)} ${esc(i.unit)}</small></div><button class="btn sm sun" data-buy="${i.id}">ซื้อเพิ่ม</button></li>`).join('')}</ul></section>`:''}
   <section class="panel"><h3>เมนูขายดีเดือนนี้</h3>${top.length?`<ul class="feed">${top.map(([n,q])=>`<li><div class="what">${esc(n)}</div><b>${qf(q)} ถ้วย</b></li>`).join('')}</ul>`:'<p class="muted" style="margin-top:6px">ยังไม่มียอดขายในเดือนนี้</p>'}</section>
   <div class="grid2">
@@ -462,7 +458,7 @@ function recForm(kind){
   return form;
 }
 function vRec(){
-  const segs=[['sale','ขาย'],['inc','รายรับอื่น'],['exp','ค่าใช้จ่าย'],['buy','ซื้อวัตถุดิบ'],['make','ทำสูตรเตรียม']];
+  const segs=[['sale','ขาย'],['inc','รายรับ'],['exp','ค่าใช้จ่าย'],['buy','ซื้อวัตถุดิบ'],['make','ทำสูตรเตรียม']];
   const form=recForm(ui.rec);
   return `${backBtn()}<div class="page-h"><h2>บันทึกรายการ</h2></div><div class="stack">
     <div class="seg">${segs.map(([k,l])=>`<button data-rec="${k}" aria-pressed="${ui.rec===k}">${l}</button>`).join('')}</div>
@@ -721,6 +717,7 @@ function vAcct(){
       ${recForm(ak)}
       <p class="hint">บันทึกยอดขายแยกเมนูได้ที่หน้าภาพรวม ปุ่ม “บันทึกขาย”</p></section>
     <div class="seg"><button data-av="month" aria-pressed="${v==='month'}">สรุปรายเดือน</button><button data-av="year" aria-pressed="${v==='year'}">สรุปรายปี</button></div>
+    <button class="btn sun block" data-xlsx="${v}">📊 ดาวน์โหลด Excel ${v==='year'?`ปี ${ui.year+543}`:ymLabel(ui.month)}</button>
     ${body}
     <p class="note">ยอดขายนับราคาเต็มก่อนหัก GP ส่วนค่า GP นับเป็นรายจ่าย ค่าวัตถุดิบนับตามที่ซื้อจริง (หน้าภาพรวมคิดต้นทุนจากสูตรเมนู ตัวเลขจึงอาจต่างกันได้)</p></div>`;
 }
@@ -778,7 +775,7 @@ function vTax(){
     ${y===cy?`<div class="seg"><button data-proj="1" aria-pressed="${ui.project}">ประมาณทั้งปี</button><button data-proj="0" aria-pressed="${!ui.project}">ยอดจริงถึงวันนี้</button></div>`:''}</div>
     ${y===cy&&ui.project?`<p class="muted">ยอดจริง ${elapsed.toFixed(1)} เดือน + คาดการณ์อีก ${remain.toFixed(1)} เดือนที่เหลือของปี ถ้าขายในอัตราเฉลี่ยเดิม</p>`:''}
     ${inc>1800000?'<p class="warn"><b>รายรับเกิน 1.8 ล้านบาทต่อปี</b> ต้องจดทะเบียน VAT ภายใน 30 วันนับจากวันที่ถึงเกณฑ์</p>':''}
-    <div class="row"><button class="btn sm ghost" data-tab="acct">📒 ดูรายรับ-รายจ่าย</button><button class="btn sm ghost" data-tab="set">⚙️ ตั้งค่าลดหย่อน / รูปแบบภาษี</button></div>
+    <div class="row"><button class="btn sm sun" data-xlsx="year">📊 ดาวน์โหลด Excel ปีนี้</button><button class="btn sm ghost" data-tab="acct">📒 ดูรายรับ-รายจ่าย</button><button class="btn sm ghost" data-tab="set">⚙️ ตั้งค่าลดหย่อน / รูปแบบภาษี</button></div>
     ${body}<p class="muted">เป็นการประมาณเพื่อวางแผน ไม่ใช่คำแนะนำทางภาษีอย่างเป็นทางการ ก่อนยื่นจริงควรให้นักบัญชีตรวจ และตรวจอัตราล่าสุดกับกรมสรรพากร</p></div>`;
 }
 
@@ -897,6 +894,61 @@ async function starterBom(){
   dlg={kind:'bom',id:null,name:'กรีกโยเกิร์ตกรอง',yieldQty:'800',unit:'กรัม',sop:'1. อุ่นนมถึง 85°C แล้วพักให้เหลือ 43°C\n2. ผสมหัวเชื้อ คนให้เข้ากัน\n3. บ่มที่ 40–43°C ประมาณ 8 ชม.\n4. กรองผ่านผ้าในตู้เย็น 8–12 ชม.\n5. ชั่งน้ำหนักที่ได้จริง แก้ “ปริมาณที่ได้” ให้ตรง',items};openDlg();
 }
 
+/* ============ EXCEL EXPORT ============ */
+let xlsxLoading=null;
+function loadXLSX(){if(window.XLSX)return Promise.resolve();return xlsxLoading||(xlsxLoading=new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';sc.onload=res;sc.onerror=()=>{xlsxLoading=null;rej(new Error('xlsx'))};document.head.appendChild(sc)}))}
+async function saveFile(filename,blob){
+  if(window.claude&&window.claude.use){
+    let dl=null;try{dl=await claude.use('downloads')}catch(e){}
+    if(!dl){toast('ดาวน์โหลดไม่ได้ในหน้านี้',true);return false}
+    try{await dl.save({filename,data:blob});return true}
+    catch(e){if(e&&e.code==='declined')return false;toast(e&&e.code==='rate_limited'?'มีหน้าต่างดาวน์โหลดเปิดอยู่ ลองอีกครั้ง':'ดาวน์โหลดไม่สำเร็จ',true);return false}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);return true;
+}
+const r2=v=>Math.round((+v||0)*100)/100;
+function sheet(rows,widths){const ws=XLSX.utils.aoa_to_sheet(rows);if(widths)ws['!cols']=widths.map(w=>({wch:w}));return ws}
+async function exportExcel(scope){
+  try{await loadXLSX()}catch(e){return toast('โหลดตัวสร้าง Excel ไม่สำเร็จ ตรวจอินเทอร์เน็ต',true)}
+  const isYear=scope==='year';const y=ui.year;const key=isYear?String(y):ui.month;
+  const match=d=>d.startsWith(isYear?y+'-':ui.month);
+  const label=isYear?`ปี ${y+543}`:ymLabel(ui.month);
+  const c=cashBook(match);const wb=XLSX.utils.book_new();
+  const shop=S.settings.shopName||'Minkuss Greek Yogurt';
+  // 1 summary
+  const sum=[[`${shop} · สรุปรายรับ-รายจ่าย ${label}`],[],['รายรับรวม',r2(c.inc)],['รายจ่ายรวม',r2(c.out)],['คงเหลือ',r2(c.net)],[],['รายรับแยกประเภท','จำนวนเงิน'],...Object.entries(c.byIn).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,r2(v)]),[],['รายจ่ายแยกประเภท','จำนวนเงิน'],...Object.entries(c.byOut).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,r2(v)])];
+  if(isYear){sum.push([],['เดือน','รายรับ','รายจ่าย','คงเหลือ']);for(let i=0;i<12;i++){const m=cashBook(d=>d.startsWith(`${y}-${String(i+1).padStart(2,'0')}`));sum.push([TH_M[i]+' '+(y+543),r2(m.inc),r2(m.out),r2(m.net)])}sum.push(['รวม',r2(c.inc),r2(c.out),r2(c.net)])}
+  XLSX.utils.book_append_sheet(wb,sheet(sum,[34,16,16,16]),'สรุป');
+  // 2 ledger
+  const led=[['วันที่','ประเภท','หมวด','รายละเอียด','รายรับ','รายจ่าย']];
+  [...c.rows].sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.at||0)-(b.at||0)).forEach(r=>led.push([r.date,r.type==='in'?'รายรับ':'รายจ่าย',r.cat,r.desc,r.type==='in'?r2(r.amt):'',r.type==='out'?r2(r.amt):'']));
+  led.push([],['','','','รวม',r2(c.inc),r2(c.out)]);
+  XLSX.utils.book_append_sheet(wb,sheet(led,[12,10,24,40,14,14]),'รายรับ-รายจ่าย');
+  // 3 sales by menu
+  const by={};S.sales.filter(s=>match(s.date||'')).forEach(s=>(s.items||[]).forEach(i=>{const k=i.name+'|'+(s.channelName||'');const o=by[k]||(by[k]={name:i.name,ch:s.channelName||'',qty:0,rev:0,cost:0});o.qty+=num(i.qty);o.rev+=num(i.qty)*num(i.price);o.cost+=num(i.qty)*num(i.cost)}));
+  const sal=[['เมนู','ช่องทาง','จำนวน','ยอดขาย','ต้นทุนวัตถุดิบ (ตามสูตร)']];Object.values(by).sort((a,b)=>b.rev-a.rev).forEach(o=>sal.push([o.name,o.ch,o.qty,r2(o.rev),r2(o.cost)]));
+  XLSX.utils.book_append_sheet(wb,sheet(sal,[32,16,10,14,22]),'ยอดขายตามเมนู');
+  // 4 tax (year only, actual figures)
+  if(isYear){const st=S.settings;const actual=c.buy+c.gp+c.other;const tx=[[`ภาษีประมาณการ ปี ${y+543} (จากยอดจริงที่บันทึก)`],[]];
+    if(st.taxMode==='person'){const T=personTax(c.inc,actual,60000,num(st.extraDeductions),120000);
+      tx.push(['รายรับทั้งปี',r2(c.inc)],[`หักค่าใช้จ่าย (${T.useFlat?'เหมา 60%':'ตามจริง'})`,r2(T.expUsed)],['ค่าลดหย่อนส่วนตัว',60000],['ค่าลดหย่อนอื่น',r2(num(st.extraDeductions))],['เงินได้สุทธิ',r2(T.net)],['ภาษีขั้นบันได (วิธีที่ 1)',r2(T.t1)],['0.5% ของรายรับ (วิธีที่ 2)',r2(T.t2)],['ภาษีที่ต้องเสีย',r2(T.tax)],['หักภาษีที่จ่ายไว้แล้ว',r2(num(st.withheld))],['คงเหลือต้องจ่าย',r2(Math.max(0,T.tax-num(st.withheld)))])}
+    else{const pr=Math.max(0,c.inc-actual);const t=pr<=300000?0:pr<=3000000?(pr-300000)*.15:2700000*.15+(pr-3000000)*.2;tx.push(['รายรับ',r2(c.inc)],['รายจ่าย',r2(actual)],['กำไรสุทธิ',r2(pr)],['ภาษีนิติบุคคล (SME)',r2(t)],['คงเหลือต้องจ่าย',r2(Math.max(0,t-num(st.withheld)))])}
+    tx.push([],['เป็นการประมาณเพื่อวางแผน ควรให้นักบัญชีตรวจก่อนยื่นจริง']);
+    XLSX.utils.book_append_sheet(wb,sheet(tx,[40,18]),'ภาษี')}
+  // 5 ingredients
+  const st=stockMap();const ing=[['วัตถุดิบ','รหัส','หมวด','หน่วยซื้อ','ราคาต่อหน่วยซื้อ','1 หน่วยซื้อมี','หน่วยในสูตร','Yield %','ต้นทุนจริงต่อหน่วย','คงเหลือ']];
+  [...S.ings].sort((a,b)=>a.name.localeCompare(b.name,'th')).forEach(i=>ing.push([i.name,i.code||'',i.cat||'',i.packUnit||'',r2(i.packPrice),num(i.packQty),i.unit,num(i.yp)||100,Math.round(ingUnitCost(i)*10000)/10000,r2(st['i:'+i.id]||0)]));
+  XLSX.utils.book_append_sheet(wb,sheet(ing,[32,10,18,10,14,12,10,8,16,10]),'วัตถุดิบ');
+  // 6 menus
+  const men=[['เมนู','หมวด','ต้นทุนวัตถุดิบ','ช่องทาง','ราคาขาย','GP + VAT','ค่าใช้จ่ายเสริม','กำไรต่อชิ้น','%ต้นทุนรวม']];
+  sortedProds().forEach(p=>{const cost=r2(itemsCost(p.items));const chs=p.channels||[];if(!chs.length)men.push([p.name,p.cat||'',cost,'','','','','','']);chs.forEach(mc=>{const k=chanCalc(p,mc);men.push([p.name,p.cat||'',cost,k.g.name,r2(k.P),r2(k.gp+k.vat),r2(k.E),r2(k.profit),r2(k.pct)])})});
+  XLSX.utils.book_append_sheet(wb,sheet(men,[32,20,14,16,10,10,14,12,12]),'เมนูและต้นทุน');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(await saveFile(`minkuss-${isYear?(y+543):key}.xlsx`,blob))toast('ดาวน์โหลด Excel แล้ว');
+}
+document.addEventListener('click',e=>{const b=e.target.closest('button[data-xlsx]');if(!b)return;b.disabled=true;exportExcel(b.dataset.xlsx).finally(()=>b.disabled=false)});
+
 /* ============ events ============ */
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;const ds=b.dataset;
@@ -998,8 +1050,24 @@ function localDB(){
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('load '+src));document.head.appendChild(s)})}
 async function loadFirebase(){const v='10.12.2',b=`https://www.gstatic.com/firebasejs/${v}/`;await loadScript(b+'firebase-app-compat.js');await loadScript(b+'firebase-auth-compat.js');await loadScript(b+'firebase-firestore-compat.js')}
 function showLogin(msg){
-  $('#view').innerHTML=`<div class="panel empty" style="margin-top:30px"><img src="logo.jpg" alt="" style="width:140px;border-radius:20px;background:#fff;padding:6px"><h2 style="margin-top:14px">เข้าสู่ระบบหลังบ้าน</h2><p class="muted" style="margin:8px 0 18px">${msg||'ใช้บัญชี Google ที่เจ้าของร้านอนุญาตไว้'}</p><button class="btn block" data-login>เข้าสู่ระบบด้วย Google</button></div>`;
+  $('#view').innerHTML=`<div class="panel stack" style="margin-top:24px;text-align:center"><img src="logo.jpg" alt="" style="width:130px;border-radius:20px;background:#fff;padding:6px;margin:0 auto"><h2>เข้าสู่ระบบหลังบ้าน</h2><p class="muted">${msg||'ใช้อีเมลที่เจ้าของร้านอนุญาตไว้'}</p>
+    <button class="btn block" data-login>เข้าสู่ระบบด้วย Google</button>
+    <p class="muted">หรือใช้อีเมลอื่น เช่น Hotmail / Outlook</p>
+    <label class="f" style="text-align:left">อีเมล<input type="email" id="lg-email" autocomplete="email" placeholder="you@hotmail.com"></label>
+    <label class="f" style="text-align:left">รหัสผ่าน (อย่างน้อย 6 ตัว)<input type="password" id="lg-pass" autocomplete="current-password"></label>
+    <button class="btn ghost block" data-loginmail>เข้าสู่ระบบด้วยอีเมล</button>
+    <p class="hint">ครั้งแรกระบบจะสร้างบัญชีให้ และส่งลิงก์ยืนยันไปที่อีเมล ต้องกดยืนยันก่อนจึงใช้งานได้</p>
+    <button class="back" data-resetpass>ลืมรหัสผ่าน</button></div>`;
 }
+function showVerify(u){
+  $('#view').innerHTML=`<div class="panel stack" style="margin-top:24px;text-align:center"><div style="font-size:3rem">📧</div><h2>ยืนยันอีเมลก่อนใช้งาน</h2>
+    <p class="muted">ส่งลิงก์ยืนยันไปที่ <b>${esc(u.email)}</b> แล้ว เปิดอีเมล (ดูในโฟลเดอร์ Junk/สแปมด้วย) กดลิงก์ แล้วกลับมากดปุ่มด้านล่าง</p>
+    <button class="btn block" data-verified>ยืนยันแล้ว เข้าสู่ระบบ</button>
+    <button class="btn ghost block" data-resend>ส่งอีเมลยืนยันอีกครั้ง</button>
+    <button class="back" data-signout>ใช้อีเมลอื่น</button></div>`;
+}
+const AUTH_ERR={'auth/wrong-password':'รหัสผ่านไม่ถูกต้อง','auth/invalid-credential':'อีเมลหรือรหัสผ่านไม่ถูกต้อง','auth/invalid-email':'รูปแบบอีเมลไม่ถูกต้อง','auth/weak-password':'รหัสผ่านต้องมีอย่างน้อย 6 ตัว','auth/too-many-requests':'ลองหลายครั้งเกินไป รอสักครู่แล้วลองใหม่','auth/operation-not-allowed':'ยังไม่ได้เปิดการเข้าสู่ระบบแบบนี้ใน Firebase (ดู README ข้อ 2.2)','auth/network-request-failed':'ไม่มีอินเทอร์เน็ต'};
+const authMsg=e=>AUTH_ERR[e&&e.code]||'เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้ง';
 function startSync(setSync,okMsg){
   COLS.forEach(c=>db.collection(c).onSnapshot(snap=>{S[c]=snap.docs.map(d=>({id:d.id,...d.data()}));schedule()},err=>{
     if(err&&err.code==='permission-denied'){setSync('บัญชีนี้ไม่มีสิทธิ์เข้าถึงข้อมูล');showLogin('อีเมลนี้ยังไม่ได้รับอนุญาต ให้เจ้าของร้านเพิ่มอีเมลในกฎ Firebase แล้วลองใหม่')}
@@ -1026,7 +1094,18 @@ function importData(){
 document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const ds=b.dataset;
   if('export' in ds)exportData();
   if('import' in ds)importData();
-  if('login' in ds){const auth=firebase.auth();const p=new firebase.auth.GoogleAuthProvider();try{await auth.signInWithPopup(p)}catch(err){try{await auth.signInWithRedirect(p)}catch(_){toast('เข้าสู่ระบบไม่สำเร็จ',true)}}}
+  if('login' in ds){const auth=firebase.auth();const p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});try{await auth.signInWithPopup(p)}catch(err){if(err&&err.code==='auth/popup-closed-by-user')return;try{await auth.signInWithRedirect(p)}catch(e2){toast(authMsg(e2),true)}}}
+  if('loginmail' in ds){const email=($('#lg-email')?.value||'').trim().toLowerCase(),pass=$('#lg-pass')?.value||'';if(!email||!pass)return toast('ใส่อีเมลและรหัสผ่าน',true);
+    const auth=firebase.auth();b.disabled=true;
+    try{await auth.signInWithEmailAndPassword(email,pass)}
+    catch(e1){if(e1&&(e1.code==='auth/user-not-found'||e1.code==='auth/invalid-credential'||e1.code==='auth/invalid-login-credentials')){
+        try{const cr=await auth.createUserWithEmailAndPassword(email,pass);await cr.user.sendEmailVerification();toast('สร้างบัญชีแล้ว ส่งลิงก์ยืนยันไปที่อีเมล')}
+        catch(e2){toast(e2&&e2.code==='auth/email-already-in-use'?'รหัสผ่านไม่ถูกต้อง (กด “ลืมรหัสผ่าน” ได้)':authMsg(e2),true)}}
+      else toast(authMsg(e1),true)}
+    b.disabled=false}
+  if('resetpass' in ds){const email=($('#lg-email')?.value||'').trim();if(!email)return toast('ใส่อีเมลก่อน แล้วกด “ลืมรหัสผ่าน”',true);try{await firebase.auth().sendPasswordResetEmail(email);toast('ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลแล้ว')}catch(e){toast(authMsg(e),true)}}
+  if('resend' in ds){try{await firebase.auth().currentUser.sendEmailVerification();toast('ส่งอีเมลยืนยันอีกครั้งแล้ว')}catch(e){toast(authMsg(e),true)}}
+  if('verified' in ds){const u=firebase.auth().currentUser;if(!u)return;await u.reload();if(firebase.auth().currentUser.emailVerified){await u.getIdToken(true);location.reload()}else toast('ยังไม่ได้ยืนยัน กดลิงก์ในอีเมลก่อน',true)}
   if('signout' in ds){await firebase.auth().signOut();location.reload()}
 });
 
@@ -1048,6 +1127,7 @@ render();
     let started=false;
     firebase.auth().onAuthStateChanged(u=>{
       if(!u){authUser=null;setSync('ยังไม่ได้เข้าสู่ระบบ');showLogin();return}
+      if(!u.emailVerified){authUser=null;setSync('รอยืนยันอีเมล');showVerify(u);return}
       if(started)return;started=true;authUser=u;db=firebase.firestore();
       startSync(setSync,'เชื่อมต่อแล้ว · '+u.email);render();
     });

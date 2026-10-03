@@ -1080,7 +1080,18 @@ function localDB(){
   };
 }
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('load '+src));document.head.appendChild(s)})}
-async function loadFirebase(){const v='10.12.2',b=`https://www.gstatic.com/firebasejs/${v}/`;await loadScript(b+'firebase-app-compat.js');await loadScript(b+'firebase-auth-compat.js');await loadScript(b+'firebase-firestore-compat.js')}
+async function loadFirebase(){
+  const v='10.12.2',files=['firebase-app-compat.js','firebase-auth-compat.js','firebase-firestore-compat.js'];
+  const bases=[`https://www.gstatic.com/firebasejs/${v}/`,`https://cdn.jsdelivr.net/npm/firebase@${v}/`];
+  let last;for(const b of bases){try{for(const f of files)await loadScript(b+f);return}catch(e){last=e;document.querySelectorAll('script[src*="firebase"]').forEach(x=>x.remove());try{delete window.firebase}catch(_){window.firebase=undefined}}}
+  throw last;
+}
+function whereProblem(){
+  if(location.protocol==='file:')return 'ตอนนี้เปิดจากไฟล์ในเครื่อง ระบบเข้าสู่ระบบใช้ได้เฉพาะตอนเปิดผ่านลิงก์เว็บ ให้อัปโหลดไฟล์ขึ้น GitHub แล้วเปิดลิงก์ <b>pattaranan-sang.github.io/minkuss-backoffice/</b>';
+  let framed=false;try{framed=window.top!==window.self}catch(e){framed=true}
+  if(framed||/claude|anthropic/i.test(location.hostname))return 'ตอนนี้เปิดในหน้าตัวอย่างของ Claude ซึ่งเชื่อม Firebase ไม่ได้ ให้อัปโหลดไฟล์ขึ้น GitHub แล้วเปิดลิงก์ <b>pattaranan-sang.github.io/minkuss-backoffice/</b>';
+  return 'โหลดระบบเข้าสู่ระบบไม่ได้ ตรวจอินเทอร์เน็ต ถ้าใช้ตัวบล็อกโฆษณา ให้ปิดสำหรับเว็บนี้ แล้วลองใหม่';
+}
 let loginMode='login',loginFails=0,loginUntil=0;
 const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
@@ -1190,7 +1201,8 @@ render();
   const cfg=window.FIREBASE_CONFIG;
   if(cfg&&cfg.apiKey&&cfg.projectId){
     MODE='firebase';setSync('กำลังเชื่อมต่อฐานข้อมูล…');
-    try{await loadFirebase();firebase.initializeApp(cfg)}catch(e){setSync('โหลด Firebase ไม่สำเร็จ');gate('<h2>เชื่อมต่อไม่สำเร็จ</h2><p class="muted">โหลดระบบเข้าสู่ระบบไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่</p><button class="btn block" onclick="location.reload()">ลองใหม่</button>');return}
+    if(location.protocol==='file:'){setSync('ยังเชื่อมต่อ Firebase ไม่ได้');gate(`<h2>ยังเชื่อมต่อไม่ได้</h2><p class="muted">${whereProblem()}</p>`);return}
+    try{await loadFirebase();firebase.initializeApp(cfg)}catch(e){setSync('ยังเชื่อมต่อ Firebase ไม่ได้');gate(`<h2>ยังเชื่อมต่อไม่ได้</h2><p class="muted">${whereProblem()}</p><button class="btn block" onclick="location.reload()">ลองใหม่</button>`);return}
     let started=false;
     firebase.auth().onAuthStateChanged(u=>{authReady=true;
       if(!u){authUser=null;setSync('ยังไม่ได้เข้าสู่ระบบ');showLogin();return}
